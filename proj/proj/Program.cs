@@ -15,6 +15,16 @@ namespace proj
             string path = "../../../test/python_test_code.py";
             string[] pythonText;
 
+            variables.Add("name", "Ash Ketchum");
+
+            variables.Add("charmender_HP", "110");
+            variables.Add("squirtle_HP", "125");
+            variables.Add("bulbasaur_HP", "150");
+
+            variables.Add("charmender_attack", "40");
+            variables.Add("squirtle_attack", "35");
+            variables.Add("bulbasaur_attack", "25");
+
             //List<Variable> localVariables = new List<Variable>();
             if (File.Exists(path))
             {
@@ -49,11 +59,6 @@ namespace proj
             {
                 lineIndex++;
             }
-            // Check for variables
-            else if (new Regex("").IsMatch(line))
-            {
-                return 0;
-            }
             // Check for while loop
             else if (new Regex("^\\s*while.*").IsMatch(line))
             {
@@ -69,8 +74,99 @@ namespace proj
             {
                 return ifStatement(pythonText, lineIndex);
             }
+            // Check for print statement
+            else if (new Regex("\\s*print\\(.*\\).*").IsMatch(line))
+            {
+                Console.WriteLine(line);
+            }
+            // Check for variables
+            else if (new Regex("\\s*[a-zA-Z_]+[a-zA-Z0-9_]* [-+*/^%]?= .*").IsMatch(line))
+            {
+                return handleVariable(line) == 1 ? lineIndex + 1 : -1;
+            }
 
             return lineIndex;
+        }
+
+
+        private static int handleVariable(string line)
+        {
+            string variable = "";
+            string value = "";
+            switch (line)
+            {
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]* =.*").IsMatch(condition):
+                    variable = condition.Split("=")[0];
+                    value = condition.Split("=")[1];
+                    break;
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]* -=.*").IsMatch(condition):
+                    variable = condition.Split("-=")[0];
+                    value = condition.Split("-=")[1];
+                    break;
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\+=.*").IsMatch(condition):
+                    variable = condition.Split("+=")[0];
+                    value = condition.Split("+=")[1];
+                    break;
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\*=.*").IsMatch(condition):
+                    variable = condition.Split("*=")[0];
+                    value = condition.Split("*=")[1];
+                    break;
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\=.*").IsMatch(condition):
+                    variable = condition.Split("\\=")[0];
+                    value = condition.Split("\\=")[1];
+                    break;
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\^=.*").IsMatch(condition):
+                    variable = condition.Split("^=")[0];
+                    value = condition.Split("^=")[1];
+                    break;
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]* %=.*").IsMatch(condition):
+                    variable = condition.Split("%=")[0].Replace(" ","");
+                    value = condition.Split("%=")[1].Replace(" ","");
+                    break;
+            }
+            if (!String.IsNullOrEmpty(variable))
+            {
+                // TODO: calculate value
+
+                foreach (KeyValuePair<string, string> item in variables)
+                {
+                    if (variable.Contains(item.Key))
+                    {
+                        if(getVariableType(item.Value) == getVariableType(value))
+                        {
+                            variables[item.Key] = value;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Error: variable of type {0} cannot not be assigned to type {1}.", getVariableType(item.Value), getVariableType(value));
+                            return -1;
+                        }
+                    }
+                }
+                variables.Add(variable, value);
+                return 1;
+            }
+            else
+            {
+                return -1;
+            }
+        }
+        
+        private static string getVariableType(string variable)
+        {
+            if (new Regex("\".*\"").IsMatch(variable))
+            {
+                return "string";
+            }
+            else if (new Regex("(true|false)").IsMatch(variable))
+            {
+                return "bool";
+            }
+            else if (new Regex("\\d*").IsMatch(variable))
+            {
+                return "double";
+            }
+            return "-1";
         }
 
         private static int whileLoop(string[] pythonText, int lineIndex)
@@ -115,14 +211,29 @@ namespace proj
 
         private static int forLoop(string[] pythonText, int lineIndex)
         {
-
-            return 0;
+            string line = pythonText[lineIndex];
+            int i = 0, indentCount = 0;
+            while (line[i].Equals(" "))
+            {
+                indentCount++;
+                i++;
+            }
+            indentCount /= 4;
+            return findNextEqualLevel(pythonText, lineIndex+1, indentCount);
         }
 
         private static int ifStatement(string[] pythonText, int lineIndex)
         {
-
-            return 0;
+            string line = pythonText[lineIndex];
+            int i = 0, indentCount = 0;
+            while (line[i].Equals(" "))
+            {
+                indentCount++;
+                i++;
+            }
+            indentCount /= 4;
+            lineIndex = findNextEqualLevel(pythonText, lineIndex + 1, indentCount);
+            return findNextEqualLevel(pythonText, lineIndex + 1, indentCount);
         }
 
         private static bool checkCondition(string conditionString)
