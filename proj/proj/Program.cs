@@ -25,14 +25,14 @@ namespace proj
             variables.Add("squirtle_attack", "35");
             variables.Add("bulbasaur_attack", "25");
 
-            //List<Variable> localVariables = new List<Variable>();
+
             if (File.Exists(path))
             {
                 pythonText = File.ReadAllLines(path);
-                foreach (string text in pythonText)
-                {
-                    Console.WriteLine(text);
-                }
+                //foreach (string text in pythonText)
+                //{
+                //    Console.WriteLine(text);
+                //}
             }
             else
             {
@@ -80,7 +80,7 @@ namespace proj
                 Console.WriteLine(line);
             }
             // Check for variables
-            else if (new Regex("\\s*[a-zA-Z_]+[a-zA-Z0-9_]* [-+*/^%]?= .*").IsMatch(line))
+            else if (new Regex("\\s*[a-zA-Z_]+[a-zA-Z0-9_]* [-+*/^%]= .*").IsMatch(line))
             {
                 return handleVariable(line) == 1 ? lineIndex + 1 : -1;
             }
@@ -93,40 +93,47 @@ namespace proj
         {
             string variable = "";
             string value = "";
+            string op = "";
             switch (line)
             {
-                case var condition when new Regex("\\s*[a-zA-Z0-9_]* =.*").IsMatch(condition):
-                    variable = condition.Split("=")[0];
-                    value = condition.Split("=")[1];
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]*\\s*-=.*").IsMatch(condition):
+                    op = "-";
                     break;
-                case var condition when new Regex("\\s*[a-zA-Z0-9_]* -=.*").IsMatch(condition):
-                    variable = condition.Split("-=")[0];
-                    value = condition.Split("-=")[1];
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]*\\s*\\+=.*").IsMatch(condition):
+                    op = "+";
                     break;
-                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\+=.*").IsMatch(condition):
-                    variable = condition.Split("+=")[0];
-                    value = condition.Split("+=")[1];
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]*\\s*\\*=.*").IsMatch(condition):
+                    op = "*";
                     break;
-                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\*=.*").IsMatch(condition):
-                    variable = condition.Split("*=")[0];
-                    value = condition.Split("*=")[1];
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]*\\s*/=.*").IsMatch(condition):
+                    op = "/";
                     break;
-                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\=.*").IsMatch(condition):
-                    variable = condition.Split("\\=")[0];
-                    value = condition.Split("\\=")[1];
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]*\\s*\\^=.*").IsMatch(condition):
+                    op = "^";
                     break;
-                case var condition when new Regex("\\s*[a-zA-Z0-9_]* \\^=.*").IsMatch(condition):
-                    variable = condition.Split("^=")[0];
-                    value = condition.Split("^=")[1];
-                    break;
-                case var condition when new Regex("\\s*[a-zA-Z0-9_]* %=.*").IsMatch(condition):
-                    variable = condition.Split("%=")[0].Replace(" ","");
-                    value = condition.Split("%=")[1].Replace(" ","");
+                case var condition when new Regex("\\s*[a-zA-Z0-9_]*\\s*%=.*").IsMatch(condition):
+                    op = "%";
                     break;
             }
+            variable = line.Split(op + "=")[0].Replace(" ","");
+            
+
+            if (variables.ContainsKey(variable))
+            {
+                value = line.Split(op + "=")[1] + op + variable;
+                value = calculateValue(replaceVariables(value));
+                variables[variable] = value;
+            }
+            else
+            {
+                Console.WriteLine("Error: undeclared variable {0}.", variable);
+            }
+
             if (!String.IsNullOrEmpty(variable))
             {
                 // TODO: calculate value
+                value = replaceVariables(value);
+
 
                 foreach (KeyValuePair<string, string> item in variables)
                 {
@@ -150,6 +157,102 @@ namespace proj
             {
                 return -1;
             }
+        }
+
+
+        private static string calculateValue(string line)
+        {
+            List<string> tokenList = new List<string>();
+            int tokenCount = 0;
+            while (line.Length > 1)
+            {
+                if(new Regex("^-?[0-9]*").IsMatch(line))
+                {
+                   if(tokenCount == 0 || new Regex("[-+*/^%]").IsMatch(tokenList[tokenCount-1]))
+                   {
+                        tokenList.Add(line.Substring(0, 2));
+                        line = line.Substring(0, 2);
+                   }
+                   else
+                   {
+                        tokenList.Add(line.Substring(0,1));
+                        line = line.Substring(0, 1);
+                   }
+                }
+                else if (new Regex("^ .*").IsMatch(line))
+                {
+                    line = line.Substring(0, 1);
+                }
+            }
+
+            while(tokenList.Count > 1)
+            {
+                if (tokenList.Count == 2)
+                    return "-1";
+
+                int i = tokenList.IndexOf("^");
+                if (i != -1)
+                {
+                    double x = Double.Parse(tokenList[i - 1]);
+                    double y = Double.Parse(tokenList[i + 1]);
+                    x = Math.Pow(x, y);
+                    tokenList[i - 1] = x.ToString();
+                    tokenList.RemoveRange(i, 2);
+                    continue;
+                }
+                i = tokenList.IndexOf("/");
+                if (i != -1)
+                {
+                    double x = Double.Parse(tokenList[i - 1]);
+                    double y = Double.Parse(tokenList[i + 1]);
+                    x /= y;
+                    tokenList[i - 1] = x.ToString();
+                    tokenList.RemoveRange(i, 2);
+                    continue;
+                }
+                i = tokenList.IndexOf("%");
+                if (i != -1)
+                {
+                    double x = Double.Parse(tokenList[i - 1]);
+                    double y = Double.Parse(tokenList[i + 1]);
+                    x %= y;
+                    tokenList[i - 1] = x.ToString();
+                    tokenList.RemoveRange(i, 2);
+                    continue;
+                }
+                i = tokenList.IndexOf("*");
+                if (i != -1)
+                {
+                    double x = Double.Parse(tokenList[i - 1]);
+                    double y = Double.Parse(tokenList[i + 1]);
+                    x *= y;
+                    tokenList[i - 1] = x.ToString();
+                    tokenList.RemoveRange(i, 2);
+                    continue;
+                }
+                i = tokenList.IndexOf("+");
+                if (i != -1)
+                {
+                    double x = Double.Parse(tokenList[i - 1]);
+                    double y = Double.Parse(tokenList[i + 1]);
+                    x += y;
+                    tokenList[i - 1] = x.ToString();
+                    tokenList.RemoveRange(i, 2);
+                    continue;
+                }
+                i = tokenList.IndexOf("-");
+                if (i != -1)
+                {
+                    double x = Double.Parse(tokenList[i - 1]);
+                    double y = Double.Parse(tokenList[i + 1]);
+                    x -= y;
+                    tokenList[i - 1] = x.ToString();
+                    tokenList.RemoveRange(i, 2);
+                    continue;
+                }
+            }
+
+            return tokenList[0];
         }
         
         private static string getVariableType(string variable)
