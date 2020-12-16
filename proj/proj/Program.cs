@@ -44,7 +44,6 @@ namespace proj
         private static int readline(string[] pythonText, int lineIndex)
         {
             string line = pythonText[lineIndex];
-            int textIndex = 0;
             // Check for comment and blank spaces
             if(new Regex("(^\\s*#.*)|(^\\s*$)").IsMatch(line))
             {
@@ -113,8 +112,6 @@ namespace proj
 
             return whileLoopEnd;
         }
-
-        
 
         private static int forLoop(string[] pythonText, int lineIndex)
         {
