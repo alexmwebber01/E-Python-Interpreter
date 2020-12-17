@@ -53,6 +53,11 @@ namespace proj
 
         private static int readline(string[] pythonText, int lineIndex)
         {
+            if(lineIndex < 41)
+            {
+                return ++lineIndex;
+                
+            }
             string line = pythonText[lineIndex];
             // Check for comment and blank spaces
             if(new Regex("(^\\s*#.*)|(^\\s*$)").IsMatch(line))
@@ -314,16 +319,129 @@ namespace proj
 
         private static int forLoop(string[] pythonText, int lineIndex)
         {
-            string line = pythonText[lineIndex];
-            int i = 0, indentCount = 0;
-            while (line[i].Equals(" "))
+            int startLineIndex = lineIndex;
+            string line = pythonText[startLineIndex];
+            var localVariable = "";
+            var iterable = "";
+
+
+            // Expect for keyword
+            Match match = Regex.Match(line, "\\s*for ");
+            if (match.Success)
             {
-                indentCount++;
-                i++;
+                line = line.Remove(0, match.Index + match.Length);
             }
-            indentCount /= 4;
-            return findNextEqualLevel(pythonText, lineIndex+1, indentCount);
+            else
+            {
+                Console.WriteLine("Expected for keyword!");
+                return -1;
+            }
+
+            // Create local variable for iterable
+            match = Regex.Match(line, "[a-zA-Z_]+[a-zA-Z0-9_]*");
+            if (match.Success)
+            {
+                localVariable = line.Substring(0, match.Index + match.Length);
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected a forloop variable!");
+                return -1;
+            }
+
+
+            // Expect in keyword
+            match = Regex.Match(line, "\\s*in ");
+            if (match.Success)
+            {
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected in keyword!");
+                return -1;
+            }
+
+            // Create Iterable
+            match = Regex.Match(line, "[a-zA-Z_(), ]+");
+            if (match.Success)
+            {
+                iterable = line.Substring(0, match.Index + match.Length);
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected interable!");
+                return -1;
+            }
+
+            // Check for colon
+            match = Regex.Match(line, ":\\s*");
+            if (match.Success)
+            {
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected interable!");
+                return -1;
+            }
+
+
+            //TODO Abstract range to token
+            int lastIndex = startLineIndex;
+            for(int i = 5; i < 25; i++)
+            {
+                readline(pythonText, ++lineIndex);
+                lastIndex = lineIndex;
+                lineIndex = startLineIndex;
+            }
+
+            return lastIndex;
         }
+
+        /*
+        private static string getForLoopVariable(string line)
+        {
+            // Running out of time...
+            string forLoopString = "for ";
+            string inKeyWord = " in ";
+            int start = line.IndexOf(forLoopString);
+            if (start < 0)
+            {
+                Console.WriteLine("Missing key word \"for\"");
+                return null;
+            }
+            
+            start = start + forLoopString.Length;
+
+            int end = line.IndexOf(inKeyWord);
+            if (end < 0)
+            {
+                Console.WriteLine("Missing key word \"in\"");
+            }
+
+            string key = line.Substring(start, end - start);
+
+            return key;
+        }*/
+
+        /*private static string getForLoopInterable(string line)
+        {
+            // Running out of time...
+            string inKeyWord = " in ";
+            int start = line.IndexOf(inKeyWord);
+            if (start < 0)
+            {
+                Console.WriteLine("Missing key word \"in\"");
+            }
+
+            //string key = line.Substring(start + inKeyWord.Length, end);
+
+            return null;
+        }*/
+
 
         private static int ifStatement(string[] pythonText, int lineIndex)
         {
