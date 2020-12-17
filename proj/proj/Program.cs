@@ -323,12 +323,13 @@ namespace proj
             string line = pythonText[startLineIndex];
             var localVariable = "";
             var iterable = "";
-
+            int forLoopIndent = 0;
 
             // Expect for keyword
             Match match = Regex.Match(line, "\\s*for ");
             if (match.Success)
             {
+                forLoopIndent = match.Index;
                 line = line.Remove(0, match.Index + match.Length);
             }
             else
@@ -393,55 +394,36 @@ namespace proj
             int lastIndex = startLineIndex;
             for(int i = 5; i < 25; i++)
             {
-                readline(pythonText, ++lineIndex);
+                bool isInForLoop = true;
+                while (isInForLoop) {
+                    lineIndex++;
+                    line = pythonText[lineIndex];
+                    match = Regex.Match(line, "\\s+[a-zA-Z_(),]+");
+                    if (match.Success)
+                    {
+                        Match match2 = Regex.Match(line, "[a-zA-Z_(),#]+");
+                        int currentIndent = match2.Index;
+                        if(currentIndent >= forLoopIndent)
+                        {
+                            lineIndex = readline(pythonText, ++lineIndex);
+                        }
+                        else
+                        {
+                            isInForLoop = false;
+                        }
+                    }
+                    else
+                    {
+                        isInForLoop = false;
+                    }
+                }
+
                 lastIndex = lineIndex;
                 lineIndex = startLineIndex;
             }
 
             return lastIndex;
         }
-
-        /*
-        private static string getForLoopVariable(string line)
-        {
-            // Running out of time...
-            string forLoopString = "for ";
-            string inKeyWord = " in ";
-            int start = line.IndexOf(forLoopString);
-            if (start < 0)
-            {
-                Console.WriteLine("Missing key word \"for\"");
-                return null;
-            }
-            
-            start = start + forLoopString.Length;
-
-            int end = line.IndexOf(inKeyWord);
-            if (end < 0)
-            {
-                Console.WriteLine("Missing key word \"in\"");
-            }
-
-            string key = line.Substring(start, end - start);
-
-            return key;
-        }*/
-
-        /*private static string getForLoopInterable(string line)
-        {
-            // Running out of time...
-            string inKeyWord = " in ";
-            int start = line.IndexOf(inKeyWord);
-            if (start < 0)
-            {
-                Console.WriteLine("Missing key word \"in\"");
-            }
-
-            //string key = line.Substring(start + inKeyWord.Length, end);
-
-            return null;
-        }*/
-
 
         private static int ifStatement(string[] pythonText, int lineIndex)
         {
