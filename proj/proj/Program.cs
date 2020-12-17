@@ -15,24 +15,10 @@ namespace proj
             string path = "../../../test/python_test_code.py";
             string[] pythonText;
 
-            variables.Add("name", "Ash Ketchum");
-
-            variables.Add("charmender_HP", "110");
-            variables.Add("squirtle_HP", "125");
-            variables.Add("bulbasaur_HP", "150");
-
-            variables.Add("charmender_attack", "40");
-            variables.Add("squirtle_attack", "35");
-            variables.Add("bulbasaur_attack", "25");
-
 
             if (File.Exists(path))
             {
                 pythonText = File.ReadAllLines(path);
-                //foreach (string text in pythonText)
-                //{
-                //    Console.WriteLine(text);
-                //}
             }
             else
             {
@@ -43,6 +29,7 @@ namespace proj
             int lineIndex = 0;
             while (lineIndex < pythonText.Length)
             {
+                Console.WriteLine(lineIndex);
                 lineIndex = readline(pythonText, lineIndex);
                 if(lineIndex == -1)
                 {
@@ -57,7 +44,7 @@ namespace proj
             // Check for comment and blank spaces
             if(new Regex("(^\\s*#.*)|(^\\s*$)").IsMatch(line))
             {
-                lineIndex++;
+                return lineIndex + 1;
             }
             // Check for while loop
             else if (new Regex("^\\s*while.*").IsMatch(line))
@@ -80,12 +67,31 @@ namespace proj
                 Console.WriteLine(line);
             }
             // Check for variables
-            else if (new Regex("\\s*[a-zA-Z_]+[a-zA-Z0-9_]* [-+*/^%]= .*").IsMatch(line))
+            else if (new Regex("\\s*[a-zA-Z_][a-zA-Z0-9_]* [-+*/^%]= .*").IsMatch(line))
             {
                 return handleVariable(line) == 1 ? lineIndex + 1 : -1;
             }
+            // Create variable
+            else if (new Regex("\\s*[a-zA-Z_]+[a-zA-Z0-9_]* = .*").IsMatch(line))
+            {
+                return createVariable(line) == 1 ? lineIndex + 1 : -1;
+            }
 
-            return lineIndex;
+            return lineIndex+1;
+        }
+
+        private static int createVariable(string line)
+        {
+            string variable = "";
+            string value = "";
+
+            variable = line.Split("=")[0].Replace(" ", "");
+            Console.WriteLine("I" + variable + "I");
+
+            value = line.Split("=")[1];
+            value = calculateValue(replaceVariables(value));
+            variables.Add(variable, value);
+            return 1;
         }
 
 
@@ -123,38 +129,11 @@ namespace proj
                 value = line.Split(op + "=")[1] + op + variable;
                 value = calculateValue(replaceVariables(value));
                 variables[variable] = value;
-            }
-            else
-            {
-                Console.WriteLine("Error: undeclared variable {0}.", variable);
-            }
-
-            if (!String.IsNullOrEmpty(variable))
-            {
-                // TODO: calculate value
-                value = replaceVariables(value);
-
-
-                foreach (KeyValuePair<string, string> item in variables)
-                {
-                    if (variable.Contains(item.Key))
-                    {
-                        if(getVariableType(item.Value) == getVariableType(value))
-                        {
-                            variables[item.Key] = value;
-                        }
-                        else
-                        {
-                            Console.WriteLine("Error: variable of type {0} cannot not be assigned to type {1}.", getVariableType(item.Value), getVariableType(value));
-                            return -1;
-                        }
-                    }
-                }
-                variables.Add(variable, value);
                 return 1;
             }
             else
             {
+                Console.WriteLine("Error: undeclared variable {0}.", variable);
                 return -1;
             }
         }
@@ -162,34 +141,67 @@ namespace proj
 
         private static string calculateValue(string line)
         {
+            line = replaceVariables(line);
             List<string> tokenList = new List<string>();
-            int tokenCount = 0;
-            while (line.Length > 1)
+            bool nonOp = true;
+            string num = "";
+            while (line.Length > 0)
             {
-                if(new Regex("^-?[0-9]*").IsMatch(line))
+                if (new Regex("^[0-9]").IsMatch(line))
                 {
-                   if(tokenCount == 0 || new Regex("[-+*/^%]").IsMatch(tokenList[tokenCount-1]))
-                   {
-                        tokenList.Add(line.Substring(0, 2));
-                        line = line.Substring(0, 2);
-                   }
-                   else
-                   {
-                        tokenList.Add(line.Substring(0,1));
-                        line = line.Substring(0, 1);
-                   }
+                    num += line[0].ToString();
+                    line = line.Substring(1);
+                    if(line.Length == 0)
+                    {
+                        tokenList.Add(num);
+                    }
+                }
+                else if (new Regex("^[-+*/^%].*").IsMatch(line))
+                {
+                    if (line[0].Equals("-") && nonOp)
+                    {
+                        num += line[0].ToString();
+                        line = line.Substring(1);
+                        nonOp = false;
+                    }
+                    else
+                    {
+                        tokenList.Add(num);
+                        num = "";
+                        tokenList.Add(line[0].ToString());
+                        line = line.Substring(1);
+                        nonOp = true;
+                    }
                 }
                 else if (new Regex("^ .*").IsMatch(line))
                 {
-                    line = line.Substring(0, 1);
+                    line = line.Substring(1);
+                }
+                else if (new Regex("\".*\"").IsMatch(line))
+                {
+                    tokenList.Add(line.Substring(0,line.LastIndexOf("\"")));
+                    line = line.Substring(line.IndexOf("\"")+1);
+                    line = line.Substring(line.IndexOf("\"") + 1);
+                }
+                else if (new Regex("str\\(.*\\)").IsMatch(line))
+                {
+                    string temp = line.Substring(4, line.IndexOf(")"));
+                    tokenList.Add(temp);
+                    line = line.Substring(line.IndexOf(")"));
+                }
+                else
+                {
+                    Console.WriteLine("Error in calculate value");
                 }
             }
+            
+            Console.WriteLine(tokenList.Count);
 
-            while(tokenList.Count > 1)
+            while (tokenList.Count > 1)
             {
                 if (tokenList.Count == 2)
                     return "-1";
-
+                
                 int i = tokenList.IndexOf("^");
                 if (i != -1)
                 {
@@ -233,11 +245,22 @@ namespace proj
                 i = tokenList.IndexOf("+");
                 if (i != -1)
                 {
-                    double x = Double.Parse(tokenList[i - 1]);
-                    double y = Double.Parse(tokenList[i + 1]);
-                    x += y;
-                    tokenList[i - 1] = x.ToString();
-                    tokenList.RemoveRange(i, 2);
+                    try
+                    {
+                        double x = Double.Parse(tokenList[i - 1]);
+                        double y = Double.Parse(tokenList[i + 1]);
+                        x += y;
+                        tokenList[i - 1] = x.ToString();
+                        tokenList.RemoveRange(i, 2);
+                    }
+                    catch
+                    {
+                        string x = tokenList[i - 1];
+                        string y = tokenList[i + 1];
+                        x += y;
+                        tokenList[i - 1] = x;
+                        tokenList.RemoveRange(i, 2);
+                    }
                     continue;
                 }
                 i = tokenList.IndexOf("-");
@@ -275,13 +298,12 @@ namespace proj
         private static int whileLoop(string[] pythonText, int lineIndex)
         {
             string line = pythonText[lineIndex];
-            // Remove white space at beginning of line
-            line = removeLeadingWhiteSpaces(line);
 
             // Make line the remaining condition by removing while and the colon
             if (new Regex("\\s*while.*:").IsMatch(line))
             {
-                line = line.Substring(line.IndexOf("while "), line.LastIndexOf(":"));
+                line = line.Replace("while ", "");
+                line = line.Substring(0, line.LastIndexOf(":"));                
             }
             else
             {
@@ -290,14 +312,16 @@ namespace proj
             }
 
             int i = 0, indentCount = 0;
-            while (line[i].Equals(" "))
+            string line2 = pythonText[lineIndex];
+            while (new Regex("^    .*").IsMatch(line2))
             {
+                line2 = line2.Substring(4);
                 indentCount++;
                 i++;
             }
-            indentCount /= 4;
 
-            string condition = removeLeadingWhiteSpaces(line);
+
+            string condition = removeWhiteSpaces(line);
             int whileLoopStart = lineIndex + 1;
             int whileLoopEnd = findNextEqualLevel(pythonText,whileLoopStart,indentCount);
             while (checkCondition(condition))
@@ -328,14 +352,32 @@ namespace proj
         private static int ifStatement(string[] pythonText, int lineIndex)
         {
             string line = pythonText[lineIndex];
-            int i = 0, indentCount = 0;
-            while (line[i].Equals(" "))
+
+            // Make line the remaining condition by removing while and the colon
+            if (new Regex("\\s*if.*:").IsMatch(line))
             {
+                line = line.Replace("if ", "");
+                line = line.Substring(0, line.LastIndexOf(":"));
+            }
+            else if (new Regex("\\s*if(.*):").IsMatch(line)) 
+            {
+                line = line.Replace("if(", "");
+                line = line.Substring(0, line.LastIndexOf(":")-1);
+            }
+            else
+            {
+                Console.WriteLine("Invalid if statement line {0}", lineIndex);
+                return -1;
+            }
+
+            int i = 0, indentCount = 0;
+            string line2 = pythonText[lineIndex];
+            while (new Regex("^    .*").IsMatch(line2))
+            {
+                line2 = line2.Substring(4);
                 indentCount++;
                 i++;
             }
-            indentCount /= 4;
-            lineIndex = findNextEqualLevel(pythonText, lineIndex + 1, indentCount);
             return findNextEqualLevel(pythonText, lineIndex + 1, indentCount);
         }
 
@@ -391,8 +433,8 @@ namespace proj
                     return operand1 <= operand2;
                 // operand1 > operand2
                 case var condition when new Regex(digit + ">" + digit).IsMatch(condition):
-                    operand1 = Double.Parse(condition.Split(">")[0]);
-                    operand2 = Double.Parse(condition.Split(">")[1]);
+                    operand1 = Double.Parse(removeWhiteSpaces( condition.Split(">")[0] ));
+                    operand2 = Double.Parse(removeWhiteSpaces( condition.Split(">")[1] ));
                     return operand1 < operand2;
                 // operand1 <= operand2
                 case var condition when new Regex(digit + ">=" + digit).IsMatch(condition):
@@ -422,7 +464,7 @@ namespace proj
                 if (statement.Contains(variable.Key))
                 {
                     // Check if the variable was use inside quoatation marks
-                    if (new Regex("\\s*print\\(.*\"" + variable.Key + "\".*\\)").IsMatch(statement))
+                    if (new Regex("\\s*print\\(.*\"" + variable.Value + "\".*\\)").IsMatch(statement))
                     {
                         // Skip
                         continue;
@@ -430,17 +472,19 @@ namespace proj
                     else
                     {
                         // Replace the variable name with its value
-                        statement.Replace("\\b" + variable.Key + "\\b", variable.Value);
+                        statement = statement.Replace(variable.Key, variable.Value);
                     }
                 }
             }
             return statement;
         }
 
-        private static string removeLeadingWhiteSpaces(string line)
+        private static string removeWhiteSpaces(string line)
         {
             while (new Regex("^ .*").IsMatch(line))
                 line = line.Substring(1);
+            while (new Regex(".* $").IsMatch(line))
+                line = line.Substring(0, line.Length - 1);
             return line;
         }
 
@@ -449,12 +493,13 @@ namespace proj
             while (lineIndex < pythonText.Length)
             {
                 int i = 0, indentCount = 0;
-                while (pythonText[lineIndex][i].Equals(" "))
+                string line = pythonText[lineIndex];
+                while (new Regex("^    .*").IsMatch(line))
                 {
+                    line = line.Substring(4);
                     indentCount++;
                     i++;
                 }
-                indentCount /= 4;
                 if (indentCount == level)
                     return lineIndex;
                 lineIndex++;
