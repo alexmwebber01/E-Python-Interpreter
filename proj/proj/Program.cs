@@ -53,11 +53,6 @@ namespace proj
 
         private static int readline(string[] pythonText, int lineIndex)
         {
-            if(lineIndex < 41)
-            {
-                return ++lineIndex;
-                
-            }
             string line = pythonText[lineIndex];
             // Check for comment and blank spaces
             if(new Regex("(^\\s*#.*)|(^\\s*$)").IsMatch(line))
