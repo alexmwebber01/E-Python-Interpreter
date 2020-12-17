@@ -15,6 +15,7 @@ namespace proj
             string path = "../../../test/python_test_code.py";
             string[] pythonText;
 
+            variables.Add("name", "Ash Ketchum");
 
             if (File.Exists(path))
             {
@@ -134,6 +135,7 @@ namespace proj
 
             if (variables.ContainsKey(variable))
             {
+
                 value = variable + op + line.Split(op + "=")[1];
                 value = calculateValue(replaceVariables(value));
                 variables[variable] = value;
@@ -283,6 +285,8 @@ namespace proj
                     tokenList.RemoveRange(i, 2);
                     continue;
                 }
+                variables.Add(variable, value);
+                return 1;
             }
 
             return tokenList[0];
@@ -392,6 +396,14 @@ namespace proj
                 Console.WriteLine("Expected in keyword!");
                 return -1;
             }
+            return "-1";
+        }
+
+        private static int whileLoop(string[] pythonText, int lineIndex)
+        {
+            string line = pythonText[lineIndex];
+            // Remove white space at beginning of line
+            line = removeLeadingWhiteSpaces(line);
 
             // Create Iterable
             match = Regex.Match(line, "[a-zA-Z_(), ]+");
@@ -716,6 +728,7 @@ namespace proj
                     indentCount++;
                     i++;
                 }
+
                 if (indentCount == level)
                     return lineIndex;
                 lineIndex++;
