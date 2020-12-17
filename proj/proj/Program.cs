@@ -29,7 +29,6 @@ namespace proj
             int lineIndex = 0;
             while (lineIndex < pythonText.Length)
             {
-                Console.WriteLine(lineIndex);
                 lineIndex = readline(pythonText, lineIndex);
                 if(lineIndex == -1)
                 {
@@ -64,7 +63,9 @@ namespace proj
             // Check for print statement
             else if (new Regex("\\s*print\\(.*\\).*").IsMatch(line))
             {
-                Console.WriteLine(line);
+                string temp = line.Replace("print(","");
+                temp = temp.Remove(temp.LastIndexOf(")"));
+                Console.WriteLine(removeWhiteSpaces(calculateValue(temp)));
             }
             // Check for variables
             else if (new Regex("\\s*[a-zA-Z_][a-zA-Z0-9_]* [-+*/^%]= .*").IsMatch(line))
@@ -86,11 +87,18 @@ namespace proj
             string value = "";
 
             variable = line.Split("=")[0].Replace(" ", "");
-            Console.WriteLine("I" + variable + "I");
 
             value = line.Split("=")[1];
             value = calculateValue(replaceVariables(value));
-            variables.Add(variable, value);
+            if (variables.ContainsKey(variable))
+            {
+                variables[variable] = value;
+            }
+            else
+            {
+
+                variables.Add(variable, value);
+            }
             return 1;
         }
 
@@ -126,7 +134,7 @@ namespace proj
 
             if (variables.ContainsKey(variable))
             {
-                value = line.Split(op + "=")[1] + op + variable;
+                value = variable + op + line.Split(op + "=")[1];
                 value = calculateValue(replaceVariables(value));
                 variables[variable] = value;
                 return 1;
@@ -151,6 +159,7 @@ namespace proj
                 {
                     num += line[0].ToString();
                     line = line.Substring(1);
+                    nonOp = false;
                     if(line.Length == 0)
                     {
                         tokenList.Add(num);
@@ -158,7 +167,7 @@ namespace proj
                 }
                 else if (new Regex("^[-+*/^%].*").IsMatch(line))
                 {
-                    if (line[0].Equals("-") && nonOp)
+                    if (line[0].Equals('-') && nonOp)
                     {
                         num += line[0].ToString();
                         line = line.Substring(1);
@@ -185,9 +194,9 @@ namespace proj
                 }
                 else if (new Regex("str\\(.*\\)").IsMatch(line))
                 {
-                    string temp = line.Substring(4, line.IndexOf(")"));
+                    string temp = line.Substring(4, line.IndexOf(")")-4);
                     tokenList.Add(temp);
-                    line = line.Substring(line.IndexOf(")"));
+                    line = line.Substring(line.IndexOf(")")+1);
                 }
                 else
                 {
@@ -195,7 +204,6 @@ namespace proj
                 }
             }
             
-            Console.WriteLine(tokenList.Count);
 
             while (tokenList.Count > 1)
             {
@@ -351,18 +359,20 @@ namespace proj
 
         private static int ifStatement(string[] pythonText, int lineIndex)
         {
+            // IF Portion
+
             string line = pythonText[lineIndex];
 
             // Make line the remaining condition by removing while and the colon
-            if (new Regex("\\s*if.*:").IsMatch(line))
+            if (new Regex("\\s*if .*:").IsMatch(line))
             {
                 line = line.Replace("if ", "");
                 line = line.Substring(0, line.LastIndexOf(":"));
             }
-            else if (new Regex("\\s*if(.*):").IsMatch(line)) 
+            else if (new Regex("\\s*if\\(.*\\):").IsMatch(line))
             {
                 line = line.Replace("if(", "");
-                line = line.Substring(0, line.LastIndexOf(":")-1);
+                line = line.Substring(0, line.LastIndexOf(":") - 1);
             }
             else
             {
@@ -378,7 +388,115 @@ namespace proj
                 indentCount++;
                 i++;
             }
-            return findNextEqualLevel(pythonText, lineIndex + 1, indentCount);
+
+            string condition = removeWhiteSpaces(line);
+            int ifStart = lineIndex + 1;
+            int ifEnd = findNextEqualLevel(pythonText, ifStart, indentCount);
+            if (checkCondition(condition))
+            {
+                int ifIndex = ifStart;
+                while (ifIndex < ifEnd && !pythonText[ifIndex].Equals(""))
+                {
+                    ifIndex = readline(pythonText, ifIndex);
+                }
+            }
+            else
+            {
+                return elifStatement(pythonText, ifEnd);
+            }
+
+            while(new Regex("\\s*elif:.*:").IsMatch(pythonText[ifEnd]) || new Regex("\\s*else:.*:").IsMatch(pythonText[ifEnd]))
+            {
+                ifEnd = findNextEqualLevel(pythonText, ifEnd, indentCount);
+            }
+
+            return ifEnd;
+        }           
+
+        private static int elifStatement(string[] pythonText, int lineIndex) 
+        { 
+            string line = pythonText[lineIndex];
+
+            // Make line the remaining condition by removing while and the colon
+            if (new Regex("\\s*elif .*:").IsMatch(line))
+            {
+                line = line.Replace("elif ", "");
+                line = line.Substring(0, line.LastIndexOf(":"));
+            }
+            else if (new Regex("\\s*elif\\(.*\\):").IsMatch(line))
+            {
+                line = line.Replace("elif(", "");
+                line = line.Substring(0, line.LastIndexOf(":") - 1);
+            }
+            else if (new Regex("\\s*else\\(.*\\):").IsMatch(line) || new Regex("\\s*else .*:").IsMatch(line))
+            {
+                return elseStatement(pythonText, lineIndex);
+            }
+            else
+            {
+                Console.WriteLine("Invalid if statement line {0}", lineIndex);
+                return -1;
+            }
+
+            int i = 0, indentCount = 0;
+            string line2 = pythonText[lineIndex];
+            while (new Regex("^    .*").IsMatch(line2))
+            {
+                line2 = line2.Substring(4);
+                indentCount++;
+                i++;
+            }
+
+            string condition = removeWhiteSpaces(line);
+            int elifStart = lineIndex + 1;
+            int elifEnd = findNextEqualLevel(pythonText, elifStart, indentCount);
+            if (checkCondition(condition))
+            {
+                int ifIndex = elifStart;
+                while (ifIndex < elifEnd && !pythonText[ifIndex].Equals(""))
+                {
+                    ifIndex = readline(pythonText, ifIndex);
+                }
+            }
+            else
+            {
+                return elifStatement(pythonText, elifEnd);
+            }
+
+            while (new Regex("\\s*elif:.*:").IsMatch(pythonText[elifEnd]) || new Regex("\\s*else:.*:").IsMatch(pythonText[elifEnd]))
+            {
+                elifEnd = findNextEqualLevel(pythonText, elifEnd, indentCount);
+            }
+            return elifEnd;
+        }
+
+        private static int elseStatement(string[] pythonText, int lineIndex)
+        {
+            string line = pythonText[lineIndex];
+
+            // Make line the remaining condition by removing while and the colon
+            if (!new Regex("\\s*else:").IsMatch(line))
+            {
+                Console.WriteLine("Invalid else statement line {0}", lineIndex);
+                return -1;
+            }
+
+            int i = 0, indentCount = 0;
+            string line2 = pythonText[lineIndex];
+            while (new Regex("^    .*").IsMatch(line2))
+            {
+                line2 = line2.Substring(4);
+                indentCount++;
+                i++;
+            }
+
+            int ifEnd = findNextEqualLevel(pythonText, lineIndex + 1, indentCount);
+            int ifIndex = lineIndex + 1;
+            while (ifIndex < ifEnd && !pythonText[ifIndex].Equals(""))
+            {
+                ifIndex = readline(pythonText, ifIndex);
+            }
+            return ifEnd;
         }
 
         private static bool checkCondition(string conditionString)
@@ -421,26 +539,26 @@ namespace proj
             double operand1, operand2;
             switch (conditionString)
             {
+                // operand1 <= operand2
+                case var condition when new Regex(digit + "<=" + digit).IsMatch(condition):
+                    operand1 = Double.Parse(condition.Split("<=")[0]);
+                    operand2 = Double.Parse(condition.Split("<=")[1]);
+                    return operand1 <= operand2;
                 // operand1 < operand2
                 case var condition when new Regex(digit + "<" + digit).IsMatch(condition):
                     operand1 = Double.Parse(condition.Split("<")[0]);
                     operand2 = Double.Parse(condition.Split("<")[1]);
                     return operand1 < operand2;
                 // operand1 <= operand2
-                case var condition when new Regex(digit + "<=" + digit).IsMatch(condition):
-                    operand1 = Double.Parse(condition.Split("<=")[0]);
-                    operand2 = Double.Parse(condition.Split("<=")[1]);
-                    return operand1 <= operand2;
+                case var condition when new Regex(digit + ">=" + digit).IsMatch(condition):
+                    operand1 = Double.Parse(condition.Split(">=")[0]);
+                    operand2 = Double.Parse(condition.Split(">=")[1]);
+                    return operand1 >= operand2;
                 // operand1 > operand2
                 case var condition when new Regex(digit + ">" + digit).IsMatch(condition):
                     operand1 = Double.Parse(removeWhiteSpaces( condition.Split(">")[0] ));
                     operand2 = Double.Parse(removeWhiteSpaces( condition.Split(">")[1] ));
-                    return operand1 < operand2;
-                // operand1 <= operand2
-                case var condition when new Regex(digit + ">=" + digit).IsMatch(condition):
-                    operand1 = Double.Parse(condition.Split(">=")[0]);
-                    operand2 = Double.Parse(condition.Split(">=")[1]);
-                    return operand1 <= operand2;
+                    return operand1 > operand2;
                 // operand1 == operand2
                 case var condition when new Regex(digit + "==" + digit).IsMatch(condition):
                     operand1 = Double.Parse(condition.Split("==")[0]);
