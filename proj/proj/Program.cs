@@ -161,9 +161,7 @@ namespace proj
                     line = line.Substring(1);
                     nonOp = false;
                     if(line.Length == 0)
-                    {
                         tokenList.Add(num);
-                    }
                 }
                 else if (new Regex("^[-+*/^%].*").IsMatch(line))
                 {
@@ -175,7 +173,8 @@ namespace proj
                     }
                     else
                     {
-                        tokenList.Add(num);
+                        if (num != "")
+                            tokenList.Add(num);
                         num = "";
                         tokenList.Add(line[0].ToString());
                         line = line.Substring(1);
@@ -186,17 +185,20 @@ namespace proj
                 {
                     line = line.Substring(1);
                 }
+                else if (new Regex("^str\\(.*\\)").IsMatch(line))
+                {
+                    string temp = replaceVariables(line.Substring(4, line.IndexOf(")") - 4));
+                    tokenList.Add(temp);
+                    line = line.Substring(line.IndexOf(")") + 1);
+                }
                 else if (new Regex("\".*\"").IsMatch(line))
                 {
-                    tokenList.Add(line.Substring(0,line.LastIndexOf("\"")));
-                    line = line.Substring(line.IndexOf("\"")+1);
-                    line = line.Substring(line.IndexOf("\"") + 1);
-                }
-                else if (new Regex("str\\(.*\\)").IsMatch(line))
-                {
-                    string temp = line.Substring(4, line.IndexOf(")")-4);
+                    string temp = line.Substring(0, 1);
+                    line = line.Substring(1);
+                    temp += line.Substring(0,line.IndexOf("\""));
                     tokenList.Add(temp);
-                    line = line.Substring(line.IndexOf(")")+1);
+                    
+                    line = line.Substring(line.IndexOf("\"")+1);
                 }
                 else
                 {
@@ -346,15 +348,111 @@ namespace proj
 
         private static int forLoop(string[] pythonText, int lineIndex)
         {
-            string line = pythonText[lineIndex];
-            int i = 0, indentCount = 0;
-            while (line[i].Equals(" "))
+            int startLineIndex = lineIndex;
+            string line = pythonText[startLineIndex];
+            var localVariable = "";
+            var iterable = "";
+            int forLoopIndent = 0;
+
+            // Expect for keyword
+            Match match = Regex.Match(line, "\\s*for ");
+            if (match.Success)
             {
-                indentCount++;
-                i++;
+                forLoopIndent = match.Index;
+                line = line.Remove(0, match.Index + match.Length);
             }
-            indentCount /= 4;
-            return findNextEqualLevel(pythonText, lineIndex+1, indentCount);
+            else
+            {
+                Console.WriteLine("Expected for keyword!");
+                return -1;
+            }
+
+            // Create local variable for iterable
+            match = Regex.Match(line, "[a-zA-Z_]+[a-zA-Z0-9_]*");
+            if (match.Success)
+            {
+                localVariable = line.Substring(0, match.Index + match.Length);
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected a forloop variable!");
+                return -1;
+            }
+
+
+            // Expect in keyword
+            match = Regex.Match(line, "\\s*in ");
+            if (match.Success)
+            {
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected in keyword!");
+                return -1;
+            }
+
+            // Create Iterable
+            match = Regex.Match(line, "[a-zA-Z_(), ]+");
+            if (match.Success)
+            {
+                iterable = line.Substring(0, match.Index + match.Length);
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected interable!");
+                return -1;
+            }
+
+            // Check for colon
+            match = Regex.Match(line, ":\\s*");
+            if (match.Success)
+            {
+                line = line.Remove(0, match.Index + match.Length);
+            }
+            else
+            {
+                Console.WriteLine("Expected interable!");
+                return -1;
+            }
+
+
+            //TODO Abstract range to token
+            int lastIndex = startLineIndex;
+            for (int i = 5; i < 25; i++)
+            {
+                bool isInForLoop = true;
+                while (isInForLoop)
+                {
+                    lineIndex++;
+                    line = pythonText[lineIndex];
+                    match = Regex.Match(line, "\\s+[a-zA-Z_(),]+");
+                    if (match.Success)
+                    {
+                        Match match2 = Regex.Match(line, "[a-zA-Z_(),#]+");
+                        int currentIndent = match2.Index;
+                        if (currentIndent >= forLoopIndent)
+                        {
+                            lineIndex = readline(pythonText, ++lineIndex);
+                        }
+                        else
+                        {
+                            isInForLoop = false;
+                        }
+                    }
+                    else
+                    {
+                        isInForLoop = false;
+                    }
+                }
+
+                lastIndex = lineIndex;
+                lineIndex = startLineIndex;
+            }
+
+            return lastIndex;
         }
 
         private static int ifStatement(string[] pythonText, int lineIndex)
@@ -405,7 +503,7 @@ namespace proj
                 return elifStatement(pythonText, ifEnd);
             }
 
-            while(new Regex("\\s*elif:.*:").IsMatch(pythonText[ifEnd]) || new Regex("\\s*else:.*:").IsMatch(pythonText[ifEnd]))
+            while(new Regex("\\s*elif:.*:").IsMatch(pythonText[ifEnd]) || new Regex("\\s*else:").IsMatch(pythonText[ifEnd]))
             {
                 ifEnd = findNextEqualLevel(pythonText, ifEnd, indentCount);
             }
@@ -582,7 +680,7 @@ namespace proj
                 if (statement.Contains(variable.Key))
                 {
                     // Check if the variable was use inside quoatation marks
-                    if (new Regex("\\s*print\\(.*\"" + variable.Value + "\".*\\)").IsMatch(statement))
+                    if (new Regex("\\s*print\\(.*\"" + variable.Key + "\".*\\)").IsMatch(statement) || new Regex("\\s*str\\(" + variable.Key + "\\)").IsMatch(statement))
                     {
                         // Skip
                         continue;
